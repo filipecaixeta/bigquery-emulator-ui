@@ -2,6 +2,10 @@
 
 A web UI for Google BigQuery Emulator, providing a simple interface to interact with local BigQuery emulator instances.
 
+## UI Preview
+
+![UI Screenshot](./docs/ui-screenshot.png)
+
 ## Purpose
 
 This project serves as a user-friendly web interface for the BigQuery emulator, allowing developers to:
@@ -83,6 +87,7 @@ If you already have a BigQuery emulator running, you can use this UI with it:
                 - ./data:/data
             command: --project=local-project --data-from-yaml=/data/data.yaml
         bq-ui:
+            platform: linux/x86_64
             image: ghcr.io/filipecaixeta/bigquery-emulator-ui:latest
             ports:
                 - "8000:8000"
@@ -132,6 +137,3 @@ This project uses GitHub Actions to automatically build and publish Docker image
 - **Authentication errors**: When using real BigQuery, check your GCP credentials
 - **Empty projects list**: Verify the project ID matches what's configured in the emulator
 
-## UI Preview
-
-![UI Screenshot](./docs/ui-screenshot.png)

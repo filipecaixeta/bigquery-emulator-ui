@@ -56,6 +56,14 @@ This project serves as a user-friendly web interface for the BigQuery emulator, 
 
 ## Running the Application
 
+### Quick Start
+
+You can run the application directly using:
+
+```bash
+BIGQUERY_PROJECT_ID=your-project-id BIGQUERY_EMULATOR_HOST=localhost:9050 go run github.com/filipecaixeta/bigquery-emulator-ui@latest
+```
+
 ### Local Execution
 
 Run the server with command-line flags:

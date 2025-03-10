@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/filipecaixeta/bigquery-emulator-ui/static"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -52,7 +53,7 @@ func main() {
 
 	// Serve the index.html on the root path
 	router.GET("/", func(c *gin.Context) {
-		c.File("./static/index.html")
+		c.File(static.GetPath() + "/index.html")
 	})
 
 	// API routes
@@ -65,7 +66,7 @@ func main() {
 		api.POST("/query", bqClient.RunQuery)
 	}
 
-	router.Static("/static", "./static")
+	router.Static("/static", static.GetPath())
 
 	// Determine server port
 	port := os.Getenv("PORT")

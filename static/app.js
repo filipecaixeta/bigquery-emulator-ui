@@ -186,10 +186,10 @@ function setupEventListeners() {
         switchTab('json');
     });
 
-    window.addEventListener('popstate', function() {
+    window.addEventListener('popstate', async function() {
         const params = getParamsFromUrl();
         if (params.project && params.dataset && params.table) {
-            applyParamsToState(params);
+            await applyParamsToState(params);
         }
     });
 }

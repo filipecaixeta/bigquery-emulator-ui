@@ -252,3 +252,22 @@ textarea.form-control {
 .btn .fa-spinner {
     margin-right: 5px;
 }
+
+.navbar-share-btn {
+    background-color: #fff !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.navbar-share-btn i {
+    transition: color 0.15s ease;
+}
+
+.navbar-share-btn:hover {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #fff !important;
+}
+
+.navbar-share-btn:hover i {
+    color: #fff !important;
+}

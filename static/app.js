@@ -15,7 +15,8 @@ const state = {
     isRunningQuery: false,
     error: null,
     cmEditor: null,
-    cmJson: null
+    cmJson: null,
+    urlUpdateDebounceTimer: null
 };
 
 const elements = {
@@ -47,20 +48,129 @@ const elements = {
     tableType: document.getElementById('tableType'),
     tableLocation: document.getElementById('tableLocation'),
     tableCreated: document.getElementById('tableCreated'),
-    tableModified: document.getElementById('tableModified')
+    tableModified: document.getElementById('tableModified'),
+    shareBtn: document.getElementById('shareBtn')
 };
 
-document.addEventListener('DOMContentLoaded', function() {
+function getParamsFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const project = params.get('project') || '';
+    const dataset = params.get('dataset') || '';
+    const table = params.get('table') || '';
+    let results = params.get('results') || 'info';
+    const resultsMap = { infoTab: 'info', resultsTab: 'results', jsonTab: 'json' };
+    if (resultsMap[results]) results = resultsMap[results];
+    if (results !== 'info' && results !== 'results' && results !== 'json') results = 'info';
+    let query = '';
+    const queryEnc = params.get('query');
+    if (queryEnc) {
+        try {
+            query = atob(queryEnc);
+        } catch (e) {
+            query = '';
+        }
+    }
+    return { project, dataset, table, results, query };
+}
+
+function getUrlFromState() {
+    if (!state.currentProject || !state.currentDataset || !state.currentTable) return '';
+    const params = new URLSearchParams();
+    params.set('project', state.currentProject);
+    params.set('dataset', state.currentDataset);
+    params.set('table', state.currentTable);
+    params.set('results', state.activeTab);
+    if (state.query) params.set('query', btoa(state.query));
+    const qs = params.toString();
+    return qs ? '?' + qs : '';
+}
+
+function replaceUrlFromState() {
+    const qs = getUrlFromState();
+    const url = location.pathname + qs;
+    if (location.pathname + location.search !== url) {
+        history.replaceState(null, '', url);
+    }
+}
+
+function shareLink() {
+    if (!state.currentProject || !state.currentDataset || !state.currentTable) {
+        alert('Select a table to share a link.');
+        return;
+    }
+    const url = location.origin + location.pathname + getUrlFromState();
+    navigator.clipboard.writeText(url).then(function() {
+        const btn = elements.shareBtn;
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.disabled = true;
+        setTimeout(function() {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }, 2000);
+    }).catch(function() {
+        alert('Could not copy link. You can copy it from the address bar.');
+    });
+}
+
+async function applyParamsToState(params) {
+    const { project, dataset, table, results, query } = params;
+    if (!project || !dataset || !table) return;
+    if (!state.projects.length) return;
+    if (!state.projects.includes(project)) return;
+    if (!state.expandedProjects.includes(project)) {
+        state.expandedProjects.push(project);
+        await loadDatasets(project);
+    }
+    if (!state.projectDatasets[project] || !state.projectDatasets[project].includes(dataset)) return;
+    const dsKey = `${project}-${dataset}`;
+    if (!state.expandedDatasets.includes(dsKey)) {
+        state.expandedDatasets.push(dsKey);
+        await loadTables(project, dataset);
+    }
+    if (!state.datasetTables[dsKey] || !state.datasetTables[dsKey].includes(table)) return;
+    state.currentProject = project;
+    state.currentDataset = dataset;
+    state.currentTable = table;
+    state.activeTab = results;
+    state.tableMetadata = {};
+    state.query = query && query.trim()
+        ? query
+        : `SELECT * FROM \`${project}.${dataset}.${table}\` LIMIT 100`;
+    elements.queryTitle.textContent = `Query: ${project}.${dataset}.${table}`;
+    elements.queryEditorCard.style.display = 'block';
+    elements.resultsCard.style.display = 'block';
+    switchTab(state.activeTab);
+    renderProjects();
+    try {
+        const response = await axios.get(`/api/projects/${project}/datasets/${dataset}/tables/${table}/schema`);
+        state.tableSchema = response.data.schema;
+        state.tableMetadata = response.data;
+        renderTableInfo();
+        initCodeMirror();
+    } catch (error) {
+        console.error(`Error loading schema for table ${table}:`, error);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
     setupEventListeners();
-    loadProjects();
+    await loadProjects();
     initJsonMirror();
+    const params = getParamsFromUrl();
+    if (params.project && params.dataset && params.table) {
+        await applyParamsToState(params);
+    }
 });
 
 function setupEventListeners() {
     elements.runQueryBtn.addEventListener('click', runQuery);
     elements.formatQueryBtn.addEventListener('click', formatQuery);
     elements.refreshResourcesBtn.addEventListener('click', refreshResources);
-    
+    if (elements.shareBtn) {
+        elements.shareBtn.addEventListener('click', shareLink);
+    }
+
     elements.infoTab.addEventListener('click', function(e) {
         e.preventDefault();
         switchTab('info');
@@ -74,6 +184,13 @@ function setupEventListeners() {
     elements.jsonTab.addEventListener('click', function(e) {
         e.preventDefault();
         switchTab('json');
+    });
+
+    window.addEventListener('popstate', async function() {
+        const params = getParamsFromUrl();
+        if (params.project && params.dataset && params.table) {
+            await applyParamsToState(params);
+        }
     });
 }
 
@@ -110,6 +227,7 @@ function switchTab(tabName) {
             setTimeout(() => state.cmJson.refresh(), 10);
         }
     }
+    replaceUrlFromState();
 }
 
 async function loadProjects() {
@@ -273,6 +391,7 @@ async function selectTable(project, dataset, table) {
         
         renderTableInfo();
         initCodeMirror();
+        replaceUrlFromState();
     } catch (error) {
         console.error(`Error loading schema for table ${table}:`, error);
     }
@@ -315,6 +434,8 @@ function initCodeMirror() {
 
         state.cmEditor.on('change', (cm) => {
             state.query = cm.getValue();
+            if (state.urlUpdateDebounceTimer) clearTimeout(state.urlUpdateDebounceTimer);
+            state.urlUpdateDebounceTimer = setTimeout(replaceUrlFromState, 400);
         });
         
         setTimeout(() => {

@@ -17,8 +17,8 @@ jobs:
     permissions:
       contents: write
     outputs:
-      new_release_published: ${{ steps.release.outputs.new_release_published }}
-      new_release_version: ${{ steps.release.outputs.new_release_version }}
+      new_release_published: ${{ steps.semantic.outputs.new_release_published || steps.tag_release.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version || steps.tag_release.outputs.new_release_version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,14 +33,14 @@ jobs:
 
       - name: Semantic Release
         if: github.ref_type != 'tag'
-        id: release
+        id: semantic
         uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set version from tag
         if: github.ref_type == 'tag'
-        id: release
+        id: tag_release
         run: |
           echo "new_release_published=true" >> $GITHUB_OUTPUT
           echo "new_release_version=${{ steps.tag_version.outputs.version }}" >> $GITHUB_OUTPUT
